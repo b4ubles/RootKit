@@ -122,7 +122,9 @@ int sys_getdents(unsigned int fd, struct dirent *dirp,unsigned int count)
 
 其中fd为指向目录文件的文件描述符，该函数根据fd所指向的目录文件读取相应dirent结构，并放入dirp中，其中count为dirp中返回的数据量，正确时该函数返回值为填充到dirp的字节数。
 
-## 4. 相关命令
+## 4. 相关API
+
+### 4.1 命令
 
 + insmod 加载内核模块
 + rmmod 卸载内核模块
@@ -132,6 +134,28 @@ int sys_getdents(unsigned int fd, struct dirent *dirp,unsigned int count)
 + ps 列出进程列表，检查是否隐藏成功
 + ls 列出文件列表，检查是否隐藏成功
 + netstat 列出文件列表，检查是否隐藏成功
+
+### 4.2 库函数
+
++ kallsyms_lookup_name 寻找未导出的内核函数
++ kmalloc 内核空间malloc
++ kfree 内核空间free
++ list_del 内核删除元素
++ rcu_read_lock 声明了一个读端的临界区
++ rcu_read_unlock 解除
++ put_task_struct 释放内核线程的task_struct
++ queue_work 把函数插入到工作队列
++ spin_lock 在短期间内进行轻量级的锁定
++ rdmsrl 获取system_call地址
++ prepare_kernel_cred 创建凭证权限
++ commit_creds 应用凭证权限
++ nf_register_net_hook 网络钩子
+
+### 4.3 宏
+
++ asmlinkage 函数定义前加该宏表示这些函数通过堆栈而不是通过寄存器传递参数
++ for_each_process 宏循环控制语句，扫描整个进程链表
++ get_task_struct 获取进程信息
 
 ## 5. 参考
 
@@ -148,3 +172,5 @@ int sys_getdents(unsigned int fd, struct dirent *dirp,unsigned int count)
 + [Linux rootkit for Ubuntu 16.04 and 10.04, both i386 and amd64](https://github.com/nurupo/rootkit)
 + [hiding with a linux rootkit](https://0x00sec.org/t/hiding-with-a-linux-rootkit/4532)
 + [Linux Rootkit之二：Linux模块加载与信息隐藏](https://blog.csdn.net/u011130578/article/details/46523949)
++ [深入理解 Linux 的 RCU 机制](https://cloud.tencent.com/developer/article/1006204)
++ [入门学习linux内核提权](https://xz.aliyun.com/t/2054)
