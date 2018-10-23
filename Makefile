@@ -13,4 +13,4 @@ rootkit:
 	$(MAKE) -C $(KERNEL_DIR) SUBDIRS=$(PWD)
 
 clean:
-	rm -rf *.o *.ko *.symvers *.mod.* *.order
+	rm -rf *.o *.ko *.symvers *.mod.* *.order .tmp_versions *cmd
