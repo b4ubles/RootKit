@@ -150,12 +150,15 @@ int sys_getdents(unsigned int fd, struct dirent *dirp,unsigned int count)
 + prepare_kernel_cred 创建凭证权限
 + commit_creds 应用凭证权限
 + nf_register_net_hook 网络钩子
++ preempt_enable 允许抢占
++ preempt_disable 禁止抢占
 
 ### 4.3 宏
 
 + asmlinkage 函数定义前加该宏表示这些函数通过堆栈而不是通过寄存器传递参数
 + for_each_process 宏循环控制语句，扫描整个进程链表
 + get_task_struct 获取进程信息
++ THIS_MODULE 获取当前内核模块
 
 ## 5. 参考
 
