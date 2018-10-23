@@ -7,6 +7,7 @@
 + 进程隐藏
 + 文件隐藏
 + 端口隐藏
++ 内核模块列表隐藏
 + Root用户后门
 + 感染系统进程实现自启
 + 绕过系统防御
@@ -121,6 +122,20 @@ int sys_getdents(unsigned int fd, struct dirent *dirp,unsigned int count)
 ```
 
 其中fd为指向目录文件的文件描述符，该函数根据fd所指向的目录文件读取相应dirent结构，并放入dirp中，其中count为dirp中返回的数据量，正确时该函数返回值为填充到dirp的字节数。
+
+### 3.6. 开机自启
+
+方法一，修改初始化配置文件
+
+```
+/etc/modules-load.d/*.conf
+/run/modules-load.d/*.conf
+/usr/lib/modules-load.d/*.conf
+```
+
+方法二，修改[modprobe.d](http://man7.org/linux/man-pages/man5/modprobe.d.5.html)，当一个模块正常加载时，加载rootkit
+
+方法三，修改[modules.dep](http://man7.org/linux/man-pages/man5/modules.dep.5.html)，使得内核模块为另一个模块的依赖项
 
 ## 4. 相关API
 

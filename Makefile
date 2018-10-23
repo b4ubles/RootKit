@@ -1,7 +1,7 @@
 .PHONY: all
 
 # obj-m 表示编译成模块
-obj-m := rootkit.o
+obj-m += rootkit.o
 
 KERNEL_DIR = /lib/modules/`uname -r`/build
 PWD = $(shell pwd)
