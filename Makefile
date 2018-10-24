@@ -9,7 +9,7 @@ PWD = $(shell pwd)
 all: rootkit
 
 rootkit:
-	clang getroot.c -o getroot
+	clang client.c -o client
 	$(MAKE) -C $(KERNEL_DIR) SUBDIRS=$(PWD)
 
 clean:

