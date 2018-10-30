@@ -3,3 +3,7 @@
 *.symvers
 *.mod.*
 *.order
+*.cmd
+client
+rootkit.o.ur-safe
+.tmp_versions/

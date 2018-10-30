@@ -21,7 +21,7 @@
 
 ## 2. 说明文档
 
-### 2.1. Install
+### 2.1. 安装
 
 ```bash
 sudo apt-get install linux-headers-$(uname -r)
@@ -29,7 +29,7 @@ chmod +x install.sh
 sudo ./install.sh
 ```
 
-### 2.2. Remove
+### 2.2. 删除
 
 ```bash
 chmod +x remove.sh
