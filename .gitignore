@@ -8,4 +8,4 @@ client
 rootkit.o.ur-safe
 .tmp_versions/
 .vscode
-.mp4
+*.mp4
