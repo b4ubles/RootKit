@@ -19,7 +19,7 @@
 #define UNHIDE_SYS 6
 
 int main(int argc, char *argv[]) {
-    int fd;
+    int fd=3;
     if(argc < 2){
         return 0;
     }
