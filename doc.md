@@ -136,7 +136,7 @@ asmlinkage int new_common_filldir(struct dir_context *ctx, const char *name, int
 
 端口信息是通过读取/proc下的文件实现的，有四个文件：``/proc/net/tcp`` ``/proc/net/tcp6`` ``/proc/net/udp`` ``/proc/net/udp6``  分别是ipv4的tcp udp和ipv6的tcp udp  
 对应的，又有四个show函数来操作``tcp4_seq_show`` ``tcp6_seq_show`` ``udp4_seq_show`` ``udp6_seq_show``  
-以下以tcp ipv4为例讲解，本项目也是只实现了tcp ipv4，每个都差不多，因为主要用来隐藏比如ssh、proxy之类建立的端口，tcp ipv4比较常用就实现了这个。
+以下以tcp ipv4为例讲解，本项目也是只实现了tcp ipv4，每个都差不多，因为主要用来隐藏比如ssh、proxy之类建立的端口，tcp ipv4比较常用就实现了这个。
 查看/net/ipv4/tcp_ipv4.c的代码，可以整理出大致的调用链如下： 
 
 ```
