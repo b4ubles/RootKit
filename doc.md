@@ -1,5 +1,10 @@
 # 说明文档
 
+实验在ubuntu-16.04-server完成  
+[[torrent]](http://old-releases.ubuntu.com/releases/16.04.0/ubuntu-16.04-server-amd64.iso.torrent)  
+[[iso]](http://old-releases.ubuntu.com/releases/16.04.0/ubuntu-16.04-server-amd64.iso)  
+apt update以后不要upgrade!!!
+
 ## 1. 安装Rootkit
 
 ```bash
@@ -61,6 +66,8 @@ sudo ./remove.sh
 
 ## 1.4 实现功能及其原理
 
+kernel源码可以参照 https://elixir.bootlin.com/linux/v4.4.21/ident/
+
 ### 定时后门
 
 考虑到内网机器，定时反弹Shell到指定服务器
@@ -87,15 +94,15 @@ hook kill的syscall，当接受到特定信号的时候，给予对应的权限
 getdents64->iterate_dir->(file->f_op->iterate)->(dir_context->actor)->filldir
 ```
 
-其中，filldir函数最终会将子目录的信息填充到buf缓冲区中。因此，在filldir中hook指定文件即可实现隐藏文件。  
-hook filldir就需要先将iterate进行hook，通过打印根目录下的一级目录，发现整个文件系统中的iterate只有五个，分别是``/`` ``/proc`` ``/dev`` ``/run`` ``/sys``
+其中，filldir函数最终会将子目录的信息填充到buf缓冲区中。因此，在filldir中hook指定文件即可实现隐藏文件。  
+hook filldir就需要先将iterate进行hook，通过打印根目录下的一级目录，发现整个文件系统中的iterate只有五个，分别是``/`` ``/proc`` ``/dev`` ``/run`` ``/sys``
 
 ![iterate.png](img/iterate.png)
 
 因此，对五个iterate分别进行hook，即可隐藏文件系统中的任意文件。本项目隐藏了``/`` ``/proc`` ``/sys``  
 
 对于iterate的hook，通过hook_file_op函数实现。  
-对于filldir的hook，就是修改dir_context的actor的值。  
+对于filldir的hook，就是修改dir_context的actor的值。  
 而对于具体的filldir的实现，因为要隐藏任意文件，采用一个链表来维护需要隐藏的文件的集合  
 ``common_node`` 对应 ``/``  
 ``proc_node`` 对应 ``/proc``  
@@ -127,10 +134,10 @@ asmlinkage int new_common_filldir(struct dir_context *ctx, const char *name, int
 
 ### 端口隐藏
 
-端口信息是通过读取/proc下的文件实现的，有四个文件：``/proc/net/tcp`` ``/proc/net/tcp6`` ``/proc/net/udp`` ``/proc/net/udp6``  分别是ipv4的tcp udp和ipv6的tcp udp  
+端口信息是通过读取/proc下的文件实现的，有四个文件：``/proc/net/tcp`` ``/proc/net/tcp6`` ``/proc/net/udp`` ``/proc/net/udp6``  分别是ipv4的tcp udp和ipv6的tcp udp  
 对应的，又有四个show函数来操作``tcp4_seq_show`` ``tcp6_seq_show`` ``udp4_seq_show`` ``udp6_seq_show``  
-以下以tcp ipv4为例讲解，本项目也是只实现了tcp ipv4，每个都差不多，因为主要用来隐藏比如ssh、proxy之类建立的端口，tcp ipv4比较常用就实现了这个。
-查看/net/ipv4/tcp_ipv4.c的代码，可以整理出大致的调用链如下： 
+以下以tcp ipv4为例讲解，本项目也是只实现了tcp ipv4，每个都差不多，因为主要用来隐藏比如ssh、proxy之类建立的端口，tcp ipv4比较常用就实现了这个。
+查看/net/ipv4/tcp_ipv4.c的代码，可以整理出大致的调用链如下： 
 
 ```
 tcp_seq_open->seq_open_net->__seq_open_private->seq_open
@@ -201,5 +208,5 @@ int new_seq_show(struct seq_file *seq, void *v) {
 }
 ```
 
-因为原本的show函数，会向缓冲区里一行行的写数据，每行都是固定长度的，即TMPSZ 150的值。因此每次只要比对当前最新的一行即可。  
-同时，为了实现任意端口的隐藏，也维护了一个port_node的链表来实现，不赘述。
+因为原本的show函数，会向缓冲区里一行行的写数据，每行都是固定长度的，即TMPSZ 150的值。因此每次只要比对当前最新的一行即可。  
+同时，为了实现任意端口的隐藏，也维护了一个port_node的链表来实现，不赘述。
