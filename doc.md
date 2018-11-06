@@ -109,7 +109,7 @@ hook filldir就需要先将iterate进行hook，通过打印根目录下的一级
 ``sys_node`` 对应 ``/sys``  
 以隐藏``/``为例
 
-``` c
+```c
 asmlinkage int new_common_filldir(struct dir_context *ctx, const char *name, int namlen, loff_t offset, u64 ino, unsigned d_type)
 {
     unsigned long d_ino;
@@ -146,7 +146,7 @@ tcp_seq_open->seq_open_net->__seq_open_private->seq_open
 seq_open的op为show时就会输出信息到buf缓冲区。  
 观察tcp_seq_open的源码，发现一个结构体tcp_seq_afinfo
 
-``` c
+```c
 int tcp_seq_open(struct inode *inode, struct file *file)
 {
 	struct tcp_seq_afinfo *afinfo = PDE_DATA(inode);
@@ -167,7 +167,7 @@ int tcp_seq_open(struct inode *inode, struct file *file)
 
 tcp_seq_afinfo
 
-``` c
+```c
 struct tcp_seq_afinfo {
 	char				*name;
 	sa_family_t			family;
@@ -178,7 +178,7 @@ struct tcp_seq_afinfo {
 
 seq_operations
 
-``` c
+```c
 struct seq_operations {
 	void * (*start) (struct seq_file *m, loff_t *pos);
 	void (*stop) (struct seq_file *m, void *v);
@@ -191,7 +191,7 @@ struct seq_operations {
 hook tcp_seq_afinfo结构体的seq_ops即可，通过hook_afinfo_seq_op函数实现。  
 show的具体实现如下：
 
-``` c
+```c
 int new_seq_show(struct seq_file *seq, void *v) {
     int ret=0;
     char needle[NEEDLE_LEN]; //存端口号
